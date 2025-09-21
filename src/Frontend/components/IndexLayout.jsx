@@ -1,4 +1,3 @@
-import { mockBack } from "../public/scripts/mockBack";
 
 import { BoardItem } from "./BoardItem";
 

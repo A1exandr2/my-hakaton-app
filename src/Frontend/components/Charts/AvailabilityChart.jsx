@@ -3,7 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 export default function AvailabilityChart({ servers }) {
   const chartData = servers.map(server => ({
     name: server.host,
-    availability: server.status === 'up' ? 100 : 0,
+    availability: server.status === 'works' ? 100 : 0,
   }));
 
   // Кастомный тултип

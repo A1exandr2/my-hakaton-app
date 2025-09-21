@@ -33,7 +33,7 @@ export default function ServersPage() {
       
       const normalizedServers = (response.servers || response).map(server => ({
         ...server,
-        status: server.status === 'up' ? 'up' : 'down'
+        status: server.status === 'works' ? 'works' : "doesn't work"
       }));
       
       setServers(normalizedServers);

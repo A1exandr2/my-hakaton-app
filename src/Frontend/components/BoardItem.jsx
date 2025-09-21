@@ -15,7 +15,7 @@ export function BoardItem({ server }) {
       <td className="px-4 py-3">
         <span
           className={`px-2 py-1 rounded-full text-xs font-medium ${
-            server.status === "upped"
+            server.status === "works"
               ? "bg-green-500/20 text-green-400"
               : "bg-red-500/20 text-red-400"
           }`}

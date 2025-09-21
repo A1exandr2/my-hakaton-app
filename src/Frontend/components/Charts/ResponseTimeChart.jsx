@@ -11,7 +11,7 @@ export default function HorizontalResponseTimeChart({ servers }) {
   chartData.sort((a, b) => b.responseTime - a.responseTime);
 
   const getBarColor = (status, responseTime) => {
-    if (status !== 'up') return '#EF4444';
+    if (status !== 'works') return '#EF4444';
     if (responseTime > 1000) return '#F59E0B';
     if (responseTime > 500) return '#F97316';
     return '#10B981';
@@ -21,7 +21,7 @@ export default function HorizontalResponseTimeChart({ servers }) {
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
-      const isUp = data.status === 'up';
+      const isUp = data.status === 'works';
       
       return (
         <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-lg">

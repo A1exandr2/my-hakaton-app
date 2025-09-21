@@ -3,70 +3,73 @@ export const servers = [
         id: 1,
         host: "ya.ru",
         ip: "121.10.12.2",
-        status: "up",
+        status: "doesn't work",
+        protocol: "HTTP",
+        errorMessage: "Error",
+        statusCode: 404,
         stats: {
+            totalPings: int,
             avgResponseTimeMs: 300,
-            successRate: 100
+            successRate: 100,
+            lastCheck: string
         }
     },
+
     {
         id: 2,
-        host: "google.com",
+        host: "wiki.ru",
         ip: "121.10.12.2",
-        status: "down",
+        status: "doesn't work",
+        protocol: "HTTP",
+        errorMessage: "Error",
+        statusCode: 404,
         stats: {
-            avgResponseTimeMs: 120,
-            successRate: 90
+            totalPings: int,
+            avgResponseTimeMs: 300,
+            successRate: 100,
+            lastCheck: string
         }
-    },
-    {
+    },    {
         id: 3,
-        host: "wiki.com",
+        host: "ozon.ru",
         ip: "121.10.12.2",
-        status: "up",
+        status: "doesn't work",
+        protocol: "HTTP",
+        errorMessage: "Error",
+        statusCode: 404,
         stats: {
-            avgResponseTimeMs: 250,
-            successRate: 50
+            totalPings: int,
+            avgResponseTimeMs: 300,
+            successRate: 100,
+            lastCheck: string
         }
-    },
-    {
+    },    {
         id: 4,
-        host: "ya.ru",
+        host: "830.131.31.23",
         ip: "121.10.12.2",
-        status: "up",
+        status: "doesn't work",
+        protocol: "HTTP",
+        errorMessage: "OK",
+        statusCode: 200,
         stats: {
-            avgResponseTimeMs: 450,
-            successRate: 50
+            totalPings: int,
+            avgResponseTimeMs: 300,
+            successRate: 100,
+            lastCheck: string
         }
-    },
-    {
+    },    {
         id: 5,
         host: "ya.ru",
         ip: "121.10.12.2",
-        status: "up",
+        status: "doesn't work",
+        protocol: "HTTP",
+        errorMessage: "Error",
+        statusCode: 404,
         stats: {
-            avgResponseTimeMs: 1010,
-            successRate: 50
-        }
-    },
-    {
-        id: 6,
-        host: "ya.ru",
-        ip: "121.10.12.2",
-        status: "up",
-        stats: {
-            avgResponseTimeMs: 1000,
-            successRate: 50
-        }
-    },
-    {
-        id: 7,
-        host: "ya.ru",
-        ip: "121.10.12.2",
-        status: "up",
-        stats: {
-            avgResponseTimeMs: 500,
-            successRate: 50
+            totalPings: int,
+            avgResponseTimeMs: 300,
+            successRate: 100,
+            lastCheck: string
         }
     },
 ]

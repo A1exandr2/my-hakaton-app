@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: src/Backend/Dockerfile
     ports:
-      - "8080:80"  # внешний 8080 → внутренний 80
+      - "8080:80" # внешний 8080 → внутренний 80
     environment:
       - ASPNETCORE_URLS=http://+:80
     restart: unless-stopped
@@ -31,7 +31,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_BASE_URL=http://backend:8080  # ← снаружи доступен по 8080
+      - NEXT_PUBLIC_API_BASE_URL=http://backend:8080 # ← снаружи доступен по 8080
       - NODE_ENV=production
       - PORT=3000
     restart: unless-stopped

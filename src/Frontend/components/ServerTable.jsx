@@ -52,11 +52,17 @@ export default function ServerTable({ servers, onDelete, onRefresh, showActions 
                 Статус
               </th>
               <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Время ответа
+                Протокол
               </th>
               <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Успешность
               </th>
+              <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Сообщение
+              </th>
+              <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Статус код
+                </th>
               {showActions && (
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Действия
@@ -91,15 +97,15 @@ export default function ServerTable({ servers, onDelete, onRefresh, showActions 
                   <td className="px-6 py-4">
                     <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${statusConfig.bg} ${statusConfig.color} ${statusConfig.border}`}>
                       <span className="mr-2">{statusConfig.icon}</span>
-                      {server.status === 'up' ? 'Online' : 'Offline'}
+                      {server.status === 'works' ? 'Online' : 'Offline'}
                     </div>
                   </td>
 
-                  {/* Время ответа */}
+                  {/* Протокол */}
                   <td className="px-6 py-4">
                     <div className="flex items-center">
-                      <span className={`font-medium ${getResponseTimeColor(server.stats?.avgResponseTimeMs)}`}>
-                        {server.stats?.avgResponseTimeMs || 0} ms
+                      <span className={`font-medium ${getResponseTimeColor(server.protocol)}`}>
+                        {server.protocol}
                       </span>
                     </div>
                   </td>
@@ -110,6 +116,19 @@ export default function ServerTable({ servers, onDelete, onRefresh, showActions 
                       <span className={`font-medium ${getSuccessRateColor(server.stats?.successRate)}`}>
                         {server.stats?.successRate || 0}%
                       </span>
+                    </div>
+                  </td>
+
+                  {/* errorMessage */}
+                  <td className="px-6 py-4">
+                    <div className="flex items-center">
+                      <span>{server.errorMessage}</span>
+                    </div>
+                  </td>
+                  
+                  <td className="px-6 py-4">
+                    <div className="flex items-center">
+                      <span className={`font-medium ${getSuccessRateColor(server.stats?.successRate)}`}>{server.statusCode}</span>
                     </div>
                   </td>
 
