@@ -216,48 +216,51 @@ public class NotificationWorker : BackgroundService
         }
     }
 
+    // NotificationService.Worker/Workers/NotificationWorker.cs
     private async Task ProcessMessageAsync(BasicDeliverEventArgs ea, CancellationToken cancellationToken)
     {
-        if (_channel == null || !_channel.IsOpen)
+        if (_channel == null || _connection == null || !_connection.IsOpen)
         {
             _logger.LogError("RabbitMQ channel is not available for message processing");
             return;
         }
 
+        var body = ea.Body.ToArray();
+        var message = Encoding.UTF8.GetString(body);
+        
+        _logger.LogDebug("Received message: {Message}", message);
+
         try
         {
-            var body = ea.Body.ToArray();
-            var message = Encoding.UTF8.GetString(body);
-            
-            _logger.LogDebug("Received message: {Message}", message);
-
-            var notification = JsonSerializer.Deserialize<NotificationMessage>(message, _jsonOptions);
-            if (notification == null)
+            var alert = JsonSerializer.Deserialize<AlertNotification>(message);
+            if (alert == null)
             {
-                _logger.LogWarning("Failed to deserialize message. Rejecting without requeue");
-                TryRejectMessage(ea, requeue: false);
+                _logger.LogWarning("Failed to deserialize AlertNotification");
+                TryRejectMessage(ea, false);
                 return;
             }
 
-            await _emailService.SendStatusReportAsync(notification.Email, notification.Report, cancellationToken);
-            _logger.LogInformation("✅ Email sent to: {Email}", notification.Email);
+            _logger.LogInformation("Processing alert for server: {ServerHost}", alert.ServerHost);
+
+            await _emailService.SendAlertNotificationAsync(alert, cancellationToken);
             
-            _channel.BasicAck(ea.DeliveryTag, multiple: false);
+            _logger.LogInformation("✅ Alert notifications sent for server: {ServerHost}. Emails: {EmailCount}", 
+                alert.ServerHost, alert.Emails.Count);
+
+            if (_channel.IsOpen)
+            {
+                _channel.BasicAck(ea.DeliveryTag, false);
+            }
         }
-        catch (OperationCanceledException)
+        catch (JsonException ex)
         {
-            _logger.LogWarning("Email sending cancelled. Requeuing message");
-            TryRejectMessage(ea, requeue: true);
-        }
-        catch (JsonException jsonEx)
-        {
-            _logger.LogError(jsonEx, "JSON deserialization error. Rejecting message without requeue");
-            TryRejectMessage(ea, requeue: false);
+            _logger.LogError(ex, "JSON deserialization error");
+            TryRejectMessage(ea, false);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to process message. Requeuing");
-            TryRejectMessage(ea, requeue: true);
+            _logger.LogError(ex, "Error processing alert notification");
+            TryRejectMessage(ea, false);
         }
     }
 
@@ -267,7 +270,7 @@ public class NotificationWorker : BackgroundService
         {
             if (_channel?.IsOpen == true)
             {
-                _channel.BasicReject(ea.DeliveryTag, requeue: requeue);
+                _channel.BasicReject(ea.DeliveryTag, requeue);
             }
         }
         catch (Exception ex)
