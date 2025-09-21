@@ -20,37 +20,45 @@ public:
     {
         disconnect();
     };
-
-    bool connect(const std::string& host, int port) 
+    bool connect(const std::string& host, int port)
     {
         if (connected_) {
             return true;
         }
 
-        // Создаем сокет
-        socket_fd_ = socket(AF_INET, SOCK_STREAM, 0);
-        if (socket_fd_ < 0) {
-            std::cerr << "filed to create socket: " << strerror(errno) << std::endl;
+        struct addrinfo hints = {};
+        struct addrinfo* result = nullptr;
+
+        hints.ai_family = AF_INET;      // IPv4
+        hints.ai_socktype = SOCK_STREAM; // TCP
+
+        // Преобразуем порт в строку
+        std::string port_str = std::to_string(port);
+
+        // Получаем информацию об адресе
+        int status = getaddrinfo(host.c_str(), port_str.c_str(), &hints, &result);
+        if (status != 0) {
+            std::cerr << "failed to resolve host: " << host << " - " << gai_strerror(status) << std::endl;
             return false;
         }
 
-        // Настраиваем адрес сервера
-        sockaddr_in server_addr{};
-        server_addr.sin_family = AF_INET;
-        server_addr.sin_port = htons(port);
-
-        if (inet_pton(AF_INET, host.c_str(), &server_addr.sin_addr) <= 0) {
-            std::cerr << "unable addr: " << host << std::endl;
-            close(socket_fd_);
+        // Создаем сокет
+        socket_fd_ = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
+        if (socket_fd_ < 0) {
+            std::cerr << "failed to create socket: " << strerror(errno) << std::endl;
+            freeaddrinfo(result);
             return false;
         }
 
         // Подключаемся к серверу
-        if (::connect(socket_fd_, (sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        if (::connect(socket_fd_, result->ai_addr, result->ai_addrlen) < 0) {
             std::cerr << "failed to connect (socket): " << strerror(errno) << std::endl;
             close(socket_fd_);
+            freeaddrinfo(result);
             return false;
         }
+
+        freeaddrinfo(result);
 
         connected_ = true;
         running_ = true;

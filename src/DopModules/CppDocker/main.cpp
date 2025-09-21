@@ -4,20 +4,19 @@ AsyncPinger pinger;
 WebResourceMonitor monitor;
 TCPClient client;
 
+bool exit_flag{ false }; 
 static void handler(int s) {
     if (s == 2) // crtl+c
     {
         pinger.stop();
         monitor.stop();
         client.disconnect();
-        exit(1);
+        exit_flag = true;
     }
 }
 
 int main()
 {
-    
-
     struct sigaction sigIntHandler{};
 
     sigIntHandler.sa_handler = handler;
@@ -129,7 +128,7 @@ int main()
     
 
     // Связка с C#
-    if (client.connect("127.0.0.1", 7777))
+    if (client.connect("localhost", 7777))
     {
         std::cout << "Connected to C# server" << std::endl;
         std::cout << "Starting monitoring with immediate checks..." << std::endl;
@@ -194,6 +193,9 @@ int main()
             
             pinger.update();
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            
+            if(exit_flag)
+                break;
         }
     }
     else
