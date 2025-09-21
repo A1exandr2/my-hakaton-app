@@ -1,4 +1,6 @@
-namespace Hackathon.Domain;
+using System.Runtime.CompilerServices;
+
+namespace Hackathon.Domain.Entities;
 
 public abstract class BaseEntity
 {

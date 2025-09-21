@@ -1,4 +1,4 @@
-namespace Hackathon.Api.Models;
+namespace Hackathon.Api.Common.Models;
 
 public abstract class ApiResponse
 {

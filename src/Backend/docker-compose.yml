@@ -1,0 +1,102 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "8080:80"
+      - "5050:5050"
+      - "7777:7777"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__ClickHouse=Host=clickhouse;Port=8123;Database=monitoring;User=default;Password=123
+      - ConnectionStrings__Postgresql=Host=postgres;Port=5432;Database=monitoring;Username=postgres;Password=123
+      - RabbitMqSettings__HostName=rabbitmq
+      - RabbitMqSettings__Port=5672
+      - RabbitMqSettings__UserName=guest
+      - RabbitMqSettings__Password=guest
+      - RabbitMqSettings__QueueName=notifications_queue
+      - RabbitMqSettings__ExchangeName=notifications_exchange
+      - RabbitMqSettings__RoutingKey=notification.status_report
+      - MonitoringService=http://api:5050
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - hackathon-net
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 10s  # Увеличьте timeout
+      retries: 10   # Увеличьте количество попыток
+      start_period: 30s  # Дайте больше времени на запуск
+    networks:
+      - hackathon-net
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.6
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    environment:
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=123  # ← Пароль добавлен
+      - CLICKHOUSE_DB=monitoring
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD", "wget", "--server-response", "--spider", "--quiet", "http://localhost:8123/ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 30s 
+    networks:
+      - hackathon-net
+
+  postgres:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=monitoring
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - hackathon-net
+
+volumes:
+  postgres_data:
+
+networks:
+  hackathon-net:
+    driver: bridge

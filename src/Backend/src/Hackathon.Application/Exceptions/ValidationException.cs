@@ -1,6 +1,6 @@
 using FluentValidation.Results;
 
-namespace Hackathon.Application.DTOs.Exceptions;
+namespace Hackathon.Application.Exceptions;
 
 public class ValidationException : Exception
 {

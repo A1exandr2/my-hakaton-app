@@ -3,12 +3,14 @@ using FluentValidation;
 using System.Reflection;
 using MediatR;
 using Hackathon.Application.Behaviors;
+using Hackathon.Domain.Services;
+using Hackathon.Application.Services;
 
 namespace Hackathon.Application;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructure(
+    public static IServiceCollection AddApplication(
         this IServiceCollection services
     )
     {
@@ -20,6 +22,10 @@ public static class DependencyInjection
             x.AddBehavior(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
             x.AddBehavior(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
         });
+
+        services.AddScoped<IIntervalService, IntervalService>();
+
+        services.AddAutoMapper(cfg => { }, Assembly.GetExecutingAssembly());
 
         return services;
     }

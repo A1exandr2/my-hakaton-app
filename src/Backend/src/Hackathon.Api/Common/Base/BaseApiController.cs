@@ -1,7 +1,7 @@
-using Microsoft.AspNetCore.Mvc;
 using MediatR;
+using Microsoft.AspNetCore.Mvc;
 
-namespace Hackathon.Api.Base;
+namespace Hackathon.Api.Common.Base;
 
 [ApiController]
 [Route("api/[controller]/[action]")]

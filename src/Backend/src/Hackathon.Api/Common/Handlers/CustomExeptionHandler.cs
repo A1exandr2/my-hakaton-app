@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Diagnostics;
-using Hackathon.Api.Models;
-using Hackathon.Application.DTOs.Exceptions;
+using Hackathon.Api.Common.Models;
+using Hackathon.Application.Exceptions;
 
-namespace Hackathon.Api.Handlers;
+namespace Hackathon.Api.Common.Handlers;
 
 public class CustomExeptionHandler : IExceptionHandler
 {
@@ -38,5 +38,4 @@ public class CustomExeptionHandler : IExceptionHandler
 
         return true;
     }
-
 }

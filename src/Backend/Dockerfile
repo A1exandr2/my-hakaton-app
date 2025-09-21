@@ -1,20 +1,30 @@
+# Этап 1: Сборка
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
-# Копируем ВСЁ содержимое папки src/Backend/ в /src/ внутри контейнера
-COPY ./src/Backend/. .
+# Копируем всё содержимое проекта (включая .sln, .csproj)
+COPY . ./
 
 # Восстанавливаем зависимости
-RUN dotnet restore "Hackathon.sln"
+RUN dotnet restore src/Hackathon.Api/Hackathon.Api.csproj
 
-# Собираем и публикуем основной проект
-WORKDIR "/src/src/Hackathon.Api"
-RUN dotnet publish "Hackathon.Api.csproj" -c Release -o /app/publish
+# Публикуем приложение
+RUN dotnet publish src/Hackathon.Api/Hackathon.Api.csproj -c Release -o /app/publish
 
-# Этап запуска
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
+# Этап 2: Запуск
+FROM mcr.microsoft.com/dotnet/aspnet:9.0
 WORKDIR /app
+
+# Копируем опубликованные файлы
 COPY --from=build /app/publish .
 
-EXPOSE 8080
+# Открываем порты
+EXPOSE 80
+EXPOSE 5050
+
+# Создаём пользователя (опционально)
+RUN adduser --disabled-password --gecos '' appuser && chown -R appuser /app
+USER appuser
+
+# Запускаем API
 ENTRYPOINT ["dotnet", "Hackathon.Api.dll"]

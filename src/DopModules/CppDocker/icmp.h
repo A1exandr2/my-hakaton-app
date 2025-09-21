@@ -21,7 +21,10 @@ class AsyncPinger {
 private:
     struct PingTask {
         std::string address;
+        std::chrono::minutes interval;
         std::chrono::steady_clock::time_point next_ping_time;
+        int pings_remaining = 0; // Оставшееся количество пингов в текущей серии
+        bool is_in_series = false; // Флаг, что сейчас выполняется серия пингов
 
         bool operator<(const PingTask& other) const {
             return next_ping_time > other.next_ping_time;
@@ -33,7 +36,7 @@ private:
     std::vector<std::unique_ptr<std::condition_variable>> cvs;
     std::vector<std::priority_queue<PingTask>> task_queues;
     std::atomic<bool> running{ false };
-    const std::chrono::seconds ping_interval{ 5 };
+    const int ping_series_count = 7; // Количество пингов в серии
 
     // Карта для отслеживания, в каком потоке находится каждый адрес
     std::mutex address_map_mutex;
@@ -41,7 +44,11 @@ private:
 
     // Колбэк функция и мьютекс для него
     std::mutex callback_mutex;
-    std::function<void(std::string, icmplib::PingResult)> callback;
+    std::function<void(std::string, std::vector<icmplib::PingResult>)> callback;
+
+    // Буфер для накопления результатов в рамках одной серии
+    std::mutex results_mutex;
+    std::unordered_map<std::string, std::vector<icmplib::PingResult>> series_results;
 
 public:
     AsyncPinger() {
@@ -70,19 +77,19 @@ public:
     }
 
     // Установка колбэк функции
-    void set_callback(std::function<void(std::string, icmplib::PingResult)> func) {
+    void set_callback(std::function<void(std::string, std::vector<icmplib::PingResult>)> func) {
         std::lock_guard<std::mutex> lock(callback_mutex);
         callback = std::move(func);
         std::cout << "Callback set successfully" << std::endl;
     }
 
-    void add_address(const std::string& address) {
+    void add_address(const std::string& address, std::chrono::minutes interval = std::chrono::minutes(5)) {
         static size_t next_thread = 0;
         size_t thread_index = next_thread;
         next_thread = (next_thread + 1) % workers.size();
 
         auto now = std::chrono::steady_clock::now();
-        PingTask task{ address, now };
+        PingTask task{ address, interval, now, ping_series_count, true };
 
         {
             std::lock_guard<std::mutex> lock(*mutexes[thread_index]);
@@ -92,7 +99,8 @@ public:
             std::lock_guard<std::mutex> map_lock(address_map_mutex);
             address_to_thread[address] = thread_index;
 
-            std::cout << "Added address: " << address << " to thread " << thread_index << std::endl;
+            std::cout << "Added address: " << address << " to thread " << thread_index
+                << " with interval: " << interval.count() << "ms" << std::endl;
         }
         cvs[thread_index]->notify_one();
     }
@@ -113,7 +121,7 @@ public:
         }
 
         if (found) {
-            // Удаляем только из нужного потока
+            // Удаляем из очереди задач
             std::lock_guard<std::mutex> lock(*mutexes[thread_index]);
 
             std::priority_queue<PingTask> new_queue;
@@ -129,6 +137,11 @@ public:
             }
 
             task_queues[thread_index] = std::move(new_queue);
+
+            // Удаляем накопленные результаты
+            std::lock_guard<std::mutex> results_lock(results_mutex);
+            series_results.erase(address);
+
             std::cout << "Removed address: " << address << " from thread " << thread_index << std::endl;
         }
         else {
@@ -144,6 +157,9 @@ public:
 
     void stop() {
         running = false;
+
+        // Отправляем все накопленные результаты перед остановкой
+        flush_all_results();
 
         for (auto& cv : cvs) {
             cv->notify_all();
@@ -164,70 +180,66 @@ public:
 
 private:
     void ping_host(std::string address) {
+        icmplib::PingResult result;
         std::string resolved;
-
         try {
             if (!icmplib::IPAddress::IsCorrect(address, icmplib::IPAddress::Type::Unknown)) {
                 resolved = address;
             }
+            
+            result = icmplib::Ping(resolved.empty() ? address : resolved, ICMPLIB_TIMEOUT_1S);
+            //std::cout << "Pinged " << address << " - response: " << static_cast<int>(result.response) << std::endl;
+            
+        }
+        catch (const std::exception& e) {
+            std::cerr << "Ping error for " << address << ": " << e.what() << std::endl;
+            result.response = icmplib::PingResponseType::Failure;
         }
         catch (...) {
-            std::cout << "Ping request could not find host " << address << ". Please check the name and try again." << std::endl;
-
-            // Вызов колбэка с ошибкой
-            
-            call_callback_safe(address, icmplib::PingResult());
-            return;
+            std::cerr << "Unknown ping error for " << address << std::endl;
+            result.response = icmplib::PingResponseType::Failure;
         }
 
-        int ret = EXIT_SUCCESS;
-        std::cout << "Pinging " << (resolved.empty() ? address : resolved + " [" + address + "]")
-            << " with " << ICMPLIB_PING_DATA_SIZE << " bytes of data:" << std::endl;
+        // Добавляем результат в буфер серии
+        add_result_to_series(address, result);
+    }
 
-        auto result = icmplib::Ping(address, ICMPLIB_TIMEOUT_1S);
+    void add_result_to_series(const std::string& address, const icmplib::PingResult& result) {
+        std::lock_guard<std::mutex> lock(results_mutex);
+        series_results[address].push_back(result);
+    }
 
-        // Вызов колбэка с результатом
-        call_callback_safe(address, result);
+    void send_series_results(const std::string& address) {
+        std::vector<icmplib::PingResult> results;
+        {
+            std::lock_guard<std::mutex> lock(results_mutex);
+            if (series_results.find(address) != series_results.end()) {
+                results = std::move(series_results[address]);
+                series_results.erase(address);
+            }
+        }
 
-        //switch (result.response) {
-        //case icmplib::PingResponseType::Failure:
-        //    //std::cout << "Network error." << std::endl;
-        //    ret = EXIT_FAILURE;
-        //    break;
-        //case icmplib::PingResponseType::Timeout:
-        //    //std::cout << "Request timed out." << std::endl;
-        //    break;
-        //default:
-        //    //std::cout << "Reply from " << static_cast<std::string>(result.address) << ": ";
-        //    switch (result.response) {
-        //    case icmplib::PingResponseType::Success:
-        //        //std::cout << "time=" << result.delay;
-        //        if (result.address.GetType() != icmplib::IPAddress::Type::IPv6) {
-        //            //std::cout << " TTL=" << static_cast<unsigned>(result.ttl);
-        //        }
-        //        break;
-        //    case icmplib::PingResponseType::Unreachable:
-        //        //std::cout << "Destination unreachable.";
-        //        break;
-        //    case icmplib::PingResponseType::TimeExceeded:
-        //        //std::cout << "Time exceeded.";
-        //        break;
-        //    default:
-        //        //std::cout << "Response not supported.";
-        //        break;
-        //    }
-        //    //std::cout << std::endl;
-        //}
+        if (!results.empty()) {
+            call_callback_safe(address, results);
+        }
+    }
 
-        return;
+    void flush_all_results() {
+        std::lock_guard<std::mutex> lock(results_mutex);
+        for (auto& [address, results] : series_results) {
+            if (!results.empty()) {
+                call_callback_safe(address, results);
+            }
+        }
+        series_results.clear();
     }
 
     // Потокобезопасный вызов колбэка
-    void call_callback_safe(const std::string& host, icmplib::PingResult response) {
+    void call_callback_safe(const std::string& host, const std::vector<icmplib::PingResult>& responses) {
         std::lock_guard<std::mutex> lock(callback_mutex);
         if (callback) {
             try {
-                callback(host, response);
+                callback(host, responses);
             }
             catch (const std::exception& e) {
                 std::cerr << "Callback error for host " << host << ": " << e.what() << std::endl;
@@ -255,7 +267,32 @@ private:
                         task_queues[thread_index].pop();
                         has_task = true;
 
-                        task.next_ping_time = now + ping_interval;
+                        if (task.is_in_series) {
+                            // Выполняем пинг в серии
+                            task.pings_remaining--;
+
+                            if (task.pings_remaining > 0) {
+                                // Следующий пинг сразу же
+                                task.next_ping_time = now;
+                            }
+                            else {
+                                // Завершили серию - отправляем результаты и ждем интервал
+                                task.is_in_series = false;
+                                task.next_ping_time = now + task.interval;
+                                task.pings_remaining = ping_series_count;
+
+                                // Отправляем результаты серии
+                                std::thread([this, address = task.address]() {
+                                    send_series_results(address);
+                                    }).detach();
+                            }
+                        }
+                        else {
+                            // Начинаем новую серию пингов
+                            task.is_in_series = true;
+                            task.next_ping_time = now;
+                        }
+
                         task_queues[thread_index].push(task);
                     }
                 }
@@ -273,7 +310,10 @@ private:
 
             if (has_task) {
                 ping_host(task.address);
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                // Небольшая пауза между пингами в серии
+                if (task.is_in_series && task.pings_remaining > 0) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                }
             }
         }
     }

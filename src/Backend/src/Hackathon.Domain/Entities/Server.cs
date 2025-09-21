@@ -1,20 +1,21 @@
-namespace Hackathon.Domain;
+using System.Diagnostics.CodeAnalysis;
+using Hackathon.Domain.Enums;
+
+namespace Hackathon.Domain.Entities;
 
 public class Server : BaseEntity
 {
-    public string? Name { get; set; }
-    public required string Host { get; set; }
-    public required string Port { get; set; }
+    public string? Host { get; set; }
+    public string? Ip { get; set; }
+    public int IntervalMinutes { get; set; }
+    public Protocols Protocol { get; set; }
 
-    public Server(string name, string port, string host)
+    protected Server() { }
+    public Server(string host, string ip, int intervalMinutes, Protocols protocol = Protocols.ICMP)
     {
-        Name = name;
-        if (string.IsNullOrWhiteSpace(port))
-            throw new ArgumentException("Port cannot be null or empty", nameof(port));
-        if (string.IsNullOrWhiteSpace(host))
-            throw new ArgumentException("Host cannot be null or empty", nameof(host));
-
-        Port = port;
+        Ip = ip;
         Host = host;
+        IntervalMinutes = intervalMinutes;
+        Protocol = protocol;
     }
 }

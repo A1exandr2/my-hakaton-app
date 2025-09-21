@@ -1,4 +1,4 @@
-namespace Hackathon.Application.DTOs.Exceptions;
+namespace Hackathon.Application.Exceptions;
     public class NotFoundException : Exception
     {
         public NotFoundException() : base("ресурс не найден") 
